@@ -20,9 +20,10 @@ class PeerService{
         if(!this.trackAdded){
             this.localStream=stream;
 
-            this.localStream.getTrack().forEach((track)=>{
+            this.localStream.getTracks().forEach((track)=>{
                 this.peer.addTrack(track,this.localStream);
             })
+            this.tracksAdded = true;
         }
     }
 
@@ -43,14 +44,14 @@ class PeerService{
         }
     }
      async setLocalDescription(ans) {
-        if (this.webRTCPeer) {
-            await this.webRTCPeer.setLocalDescription(new RTCSessionDescription(ans));
+        if (this.peer) {
+            await this.peer.setLocalDescription(new RTCSessionDescription(ans));
         }
     }
 
     async setRemoteDescription(ans) {
-        if (this.webRTCPeer) {
-            await this.webRTCPeer.setRemoteDescription(new RTCSessionDescription(ans));
+        if (this.peer) {
+            await this.peer.setRemoteDescription(new RTCSessionDescription(ans));
         }
     }
 
