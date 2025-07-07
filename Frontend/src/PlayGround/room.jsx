@@ -5,6 +5,7 @@ import PeerService from "../Service/peer";
 function Room() {
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream,setRemoteStream]=useState(null);
+  const [isFinding,setIsFinding]=useState(false);
 
   const localVideoRef = useRef(null);
   const remoteVideoRef=useRef(null);
@@ -84,7 +85,7 @@ function Room() {
       return ;
 
     socket.on('start-joining',async ({roomId,from,me})=>{
-
+      setIsFinding(false);
         if (!localStream) {
     console.warn("Local stream not ready yet!");
     return;
@@ -159,7 +160,7 @@ function Room() {
     // Receive an answer
     socket.on("answer", async ({ answer }) => {
       const peer = peerInstance.current?.peer;
-
+      
       if (!peer) return;
       
   //➡️ Get the current signaling state of the peer.
@@ -183,6 +184,7 @@ function Room() {
           `Cannot set remote answer: Unexpected signaling state '${state}'`
         );
       }
+      
     });
 
      socket.on("ice-candidate", async ({ candidate }) => {
@@ -210,15 +212,19 @@ function Room() {
 
 
   const handleStart=()=>{
+    setIsFinding(true);
     console.log("i am on hadleStart")
     socket.emit('start-connecting');
+  }
+  const handleNext=()=>{
+    
   }
 
   return (
     <div className="w-full min-h-screen bg-gray-700 flex justify-center items-center">
       <div className="flex gap-3">
         {/* local Stream */}
-        <div className="flex justify-center items-center bg-amber-300 border-4 border-red-800 w-[500px] h-[300px]">
+        <div className="bg-amber-300 border-4 border-red-800 w-[500px] h-[300px]">
           <video
             ref={localVideoRef}
             autoPlay
@@ -226,19 +232,21 @@ function Room() {
             playsInline
             className="h-full rotate-y-180 w-full object-cover"
           ></video>
+          <button onClick={handleStart}  >Start</button>
+          <button onClick={handleNext}  >Next </button>
         </div>
         {/* Remote Stream */}
         <div className="flex justify-center items-center bg-amber-300 border-4 border-red-800 w-[500px] h-[300px]">
-          <video
+          {isFinding?<><p>Finding...</p></>:<><video
             ref={remoteVideoRef}
             autoPlay
             muted
             playsInline
             className="h-full rotate-y-180 w-full object-cover"
-          ></video>
+          ></video></>}
         </div>
       </div>
-      <button onClick={handleStart}  >Start Connnecting</button>
+      
     </div>
   );
 }
