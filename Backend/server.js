@@ -19,16 +19,56 @@ server.listen("1000", () => {
 //socket work
 const availableSet = new Set();
 const waitingSet = new Set();
-const recentMatchSet = new Set();
-const MATCH_EXPIRY = 30 * 1000; // 1 minute
+const activeRooms = new Map();
+const MATCH_EXPIRY = 30 * 1000; // 30 second
 io.on("connection", (socket) => {
   console.log(socket.id);
 
   socket.on("start-connecting", () => {
-   // availableSet.add(socket.id);
-    console.log("step 2")
+    // availableSet.add(socket.id);
+    console.log("step 2");
+    // availableSet.add(socket.id);
     makeMatchIfPossible(socket);
   });
+
+  socket.on("next", ({ otherUserId }) => {
+    if (otherUserId) {
+      // Clean up active match
+      console.log("mai aaya")
+      cleanUpMatch(socket.id,otherUserId);
+
+      // Add both users to waiting queue
+      // waitingSet.add(socket.id);
+      // waitingSet.add(otherUserId);
+
+      // Try matching socket.id now
+      makeMatchIfPossible(socket);
+
+      // Also try matching other user
+      console.log("h1")
+      setTimeout(() => {
+        console.log("h2")
+        const fakeSocket = { id: otherUserId };
+        console.log("yes push hua before",waitingSet.size);
+        makeMatchIfPossible(fakeSocket);
+        console.log("yesh push hua after",waitingSet.size);
+      }, 100); // Delay to prevent race condition
+    } else {
+      // No partner – user likely unmatched, still clicked "next"
+      
+      makeMatchIfPossible(socket);
+    }
+  });
+
+  socket.on('stop',({otherUserId})=>{
+    if(otherUserId){
+      cleanUpMatch(socket.id,otherUserId);
+      // io.to(otherUserId).emit("user-left", { roomId }); TODO add the tosat;
+      // Remove from both sets
+      availableSet.delete(socket.id);
+      waitingSet.delete(socket.id);
+    }
+  })
 
   socket.on("offer", (data) => {
     const { offer, roomId, to } = data;
@@ -47,89 +87,69 @@ io.on("connection", (socket) => {
 
   socket.on("disconnecting", () => {
     console.log("disconnected");
+    availableSet.delete(socket.id);
+    waitingSet.delete(socket.id);
   });
 });
-
-// const matchUser = (socket) => {
-//   if (availableUsers.size > 1) {
-//     for (const otherUserId of availableUsers) {
-//       if (otherUserId !== socket.id) {
-//         // Remove both users from available set
-//         availableUsers.delete(socket.id);
-//         availableUsers.delete(otherUserId);
-
-//         const roomId = `${socket.id}-${otherUserId}`;
-//         rooms.set(roomId, [socket.id, otherUserId]);
-
-//         console.log("Matched:", socket.id, "<-->", otherUserId);
-
-//         socket.emit("start-joining", {
-//           roomId,
-//           from: otherUserId,
-//           me: socket.id,
-//         });
-
-//         io.to(otherUserId).emit("start-joining", {
-//           roomId,
-//           from: socket.id,
-//           me: otherUserId,
-//         });
-
-//         break; // Important! Exit after pairing
-//       }
-//     }
-//   } else {
-//     console.log("No one available");
-//   }
-// };
-
 
 function makeMatchIfPossible(socket) {
   // 1. Try waitingSet
   for (let user of waitingSet) {
-    if (!isRecentlyMatched(user, socket.id)) {
+    if (!isCurrentlyMatched(user, socket.id) && user!=socket.id) {
+      console.log(`🔗 Matched in waithing: ${user} <--> ${socket.id}`);
       startMatch(user, socket.id);
+      console.log(waitingSet.size);
       waitingSet.delete(user);
+      waitingSet.delete(socket.id);
+      availableSet.delete(user);
+      availableSet.delete(socket.id);
+      console.log(waitingSet.size);
+      console.log(`🔗 delete in waithing: ${user} <--> ${socket.id}`);
       return;
     }
   }
 
   // 2. Try availableSet
   for (let user of availableSet) {
-    if (!isRecentlyMatched(user, socket.id)) {
+    if (!isCurrentlyMatched(user, socket.id) && user!=socket.id) {
+      console.log(`🔗 Matched in available: ${user} <--> ${socket.id}`);
       startMatch(user, socket.id);
       availableSet.delete(user);
+      availableSet.delete(socket.id);
+      waitingSet.delete(user);
+      waitingSet.delete(socket.id);
+      console.log(`🔗 delete in available: ${user} <--> ${socket.id}`);
+      console.log(availableSet.size)
+      console.log(waitingSet.size)
       return;
     }
   }
 
   // 3. No match found
-  availableSet.add(socket.id);
+  waitingSet.add(socket.id)
+  
 }
 
 function startMatch(userA, userB) {
   const roomId = `${userA}-${userB}`;
+
+  // ✅ Track the active room
+  activeRooms.set(userA, userB);
+  activeRooms.set(userB, userA);
+
+  
+
   io.to(userA).emit("start-joining", { from: userB, roomId, me: userA });
   io.to(userB).emit("start-joining", { from: userA, roomId, me: userB });
-
-  storeRecentMatch(userA, userB);
 }
 
-function storeRecentMatch(a, b) {
-  const key1 = `${a}-${b}`;
-  const key2 = `${b}-${a}`;
-  recentMatchSet.add(key1);
-  recentMatchSet.add(key2);
-
+function cleanUpMatch(userA, userB) {
   setTimeout(() => {
-    recentMatchSet.delete(key1);
-    recentMatchSet.delete(key2);
+    activeRooms.delete(userA);
+    activeRooms.delete(userB);
   }, MATCH_EXPIRY);
 }
 
-function isRecentlyMatched(a, b) {
-  return recentMatchSet.has(`${a}-${b}`) || recentMatchSet.has(`${b}-${a}`);
+function isCurrentlyMatched(a, b) {
+  return activeRooms.get(a) === b || activeRooms.get(b) === a;
 }
-
-
-
