@@ -43,7 +43,7 @@ io.on("connection", (socket) => {
 
       // Try matching socket.id now
       makeMatchIfPossible(socket);
-
+      io.to(otherUserId).emit("clear-message");
       // Also try matching other user
       console.log("h1")
       setTimeout(() => {
@@ -67,7 +67,22 @@ io.on("connection", (socket) => {
       // Remove from both sets
       availableSet.delete(socket.id);
       waitingSet.delete(socket.id);
+
+      io.to(otherUserId).emit("clear-message");    
+      
+      setTimeout(() => {
+       
+        const fakeSocket = { id: otherUserId };
+       
+        makeMatchIfPossible(fakeSocket);
+        
+      }, 100);
+
     }
+  })
+
+  socket.on('send-message',({message,otherUserId,mySocketId})=>{
+    io.to(otherUserId).emit('send-message',{message,mySocketId});
   })
 
   socket.on("offer", (data) => {
@@ -89,6 +104,10 @@ io.on("connection", (socket) => {
     console.log("disconnected");
     availableSet.delete(socket.id);
     waitingSet.delete(socket.id);
+
+    const otherUserId=activeRooms.get(socket.id);
+    console.log(otherUserId)
+    io.to(otherUserId).emit('clear-message');
   });
 });
 

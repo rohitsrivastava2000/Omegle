@@ -1,19 +1,26 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import { SocketContext } from "../Context/SocketProvider";
 import PeerService from "../Service/peer";
+import './scrollBar.css'
 
 function Room() {
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
   const [isFinding, setIsFinding] = useState(false);
-  const [mySocketId,setMySocketId]=useState("");
-  const [friendSocketId,setFriendSocketId]=useState("");
-  const [nextProcessing,setNextProcessing]=useState(false);
+  const [mySocketId, setMySocketId] = useState("");
+  const [friendSocketId, setFriendSocketId] = useState("");
+  const [nextProcessing, setNextProcessing] = useState(false);
+  const [allMessages, setAllMessages] = useState([]);
+  const [currentMessage, setCurrentMessage] = useState("");
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const socketRef = useRef(null);
   const peerInstance = useRef(null);
+  const messageContainerRef = useRef(null);
+
+
+
 
   const { socket } = useContext(SocketContext);
 
@@ -89,12 +96,21 @@ function Room() {
       setIsFinding(false);
       setFriendSocketId(from);
       setMySocketId(me);
-      console.log("MysocketId",mySocketId);
-      console.log("FriendSocketId",friendSocketId);
+      console.log("MysocketId", mySocketId);
+      console.log("FriendSocketId", friendSocketId);
       if (!localStream) {
         console.warn("Local stream not ready yet!");
         return;
       }
+
+      if (peerInstance.current) {
+        //  Ensure previous instance is cleaned up
+        peerInstance.current.peer.ontrack = null;
+        peerInstance.current.peer.onicecandidate = null;
+        peerInstance.current.peer.close();
+        peerInstance.current = null;
+      }
+
       if (!peerInstance.current) {
         peerInstance.current = new PeerService();
       }
@@ -199,12 +215,25 @@ function Room() {
       }
     });
 
+    socket.on("clear-message", () => {
+      setIsFinding(true);
+      setAllMessages([]);   
+     
+      
+    });
+
+    socket.on("send-message", ({ message,mySocketId }) => {
+      setAllMessages((prev) => [...prev,{message:message,user:mySocketId}]);
+    });
+
     // Cleanup socket listeners on unmount
     return () => {
       socket.off("start-joining");
       socket.off("offer");
       socket.off("answer");
       socket.off("ice-candidate");
+      socket.off("clear-message");
+      socket.off("send-message");
     };
   }, [socketRef, localStream]);
 
@@ -220,8 +249,8 @@ function Room() {
     if (peerInstance.current) {
       const pc = peerInstance.current.peer;
       pc.ontrack = null;
-      pc.onicecandidate = null;   
-     
+      pc.onicecandidate = null;
+
       pc.close();
       peerInstance.current = null;
     }
@@ -230,89 +259,187 @@ function Room() {
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
-    
+
     setIsFinding(true);
-    console.log("friend id",friendSocketId)
-    socket.emit("next", { otherUserId:friendSocketId });
-   // toast.success("Finding Next User!");
+    setAllMessages([]);
+    console.log("friend id", friendSocketId);
+    socket.emit("next", { otherUserId: friendSocketId });
+    // toast.success("Finding Next User!");
 
     setTimeout(() => setNextProcessing(false), 1500); // 1.5s stop repeadly clicked on next button
   };
-  const handleStop=()=>{
+  const handleStop = () => {
     if (peerInstance.current) {
       peerInstance.current.peer.close();
       peerInstance.current = null;
     }
     setRemoteStream(null);
-   
+
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
-    socket.emit("stop", { friendSocketId });
-   // toast.success("Stopped Successfully.");
+    setIsFinding(false);
+    setAllMessages([]);
+    socket.emit("stop", { otherUserId: friendSocketId });
+    // toast.success("Stopped Successfully.");
   };
 
+  //handling messages
+  const handleEnter = (e) => {
+    if (e.key === "Enter" && currentMessage.trim() !== "") {
+      if (!friendSocketId) {
+        //TODO show the toast - NO one in the room
+        return;
+      }
+      setAllMessages((prev) => [
+        ...prev,
+        { message: currentMessage, user: mySocketId },
+      ]);
+      setCurrentMessage(""); // clear input after sending
+
+      socket.emit("send-message", {
+        message: currentMessage,
+        otherUserId: friendSocketId,
+        mySocketId:mySocketId
+      });
+    }
+  };
+
+  //handling scroll bar
+  useEffect(() => {
+  if (messageContainerRef.current) {
+    messageContainerRef.current.scrollTop =
+      messageContainerRef.current.scrollHeight;
+  }
+}, [allMessages]);
+
   return (
-  <div className=" w-full min-h-screen  flex flex-col justify-center gap-3 items-center py-4">
-    {/* Top Debug Info */}
-    <div className="text-white text-sm flex flex-col items-center gap-1">
-      <p>🧑‍💻 My Socket ID: <span className="text-green-400">{mySocketId}</span></p>
-      <p>🎯 Friend Socket ID: <span className="text-blue-400">{friendSocketId}</span></p>
-    </div>
+    <div
+      className="w-full min-h-screen px-6 py-3 flex flex-col gap-6"
+      style={{
+        backgroundImage: `
+        linear-gradient(to bottom right, rgba(40, 40, 40, 0.9), rgba(10, 10, 10, 0.95)),
+        url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' width='20' height='20' fill='none' stroke-width='1' stroke='%23222222'%3e%3cpath d='M0 .5H19.5V20'/%3e%3c/svg%3e")
+      `,
+        backgroundBlendMode: "overlay",
+        backgroundRepeat: "repeat",
+      }}
+    >
+      {/* Navbar */}
+      <nav className="w-full h-14 bg-[#141414] flex justify-center items-center shadow-md rounded-tl-lg rounded-tr-lg rounded-bl-none  rounded-br-none">
+        <h1 className="text-2xl font-bold text-[rgb(233,126,1)] tracking-wide">
+          🎥 Omegle Clone
+        </h1>
+      </nav>
 
-    {/* Video Section */}
-    <div className="flex gap-4 items-center justify-center">
-      {/* Local Video */}
-      <div className="bg-amber-300 border-4 border-red-800 w-[400px] h-[300px] rounded-xl overflow-hidden">
-        <video
-          ref={localVideoRef}
-          autoPlay
-          muted
-          playsInline
-          className="w-full h-full object-cover rotate-y-180"
-        />
+      {/* Main Section */}
+      <div className="flex flex-col lg:flex-row items-start gap-8 flex-1 px-4">
+        {/* Video Section */}
+        <div className="flex flex-col gap-4">
+          {/* Remote Video */}
+          <div className="bg-gray-800  shadow-[0_0_10px_2px_rgba(233,126,1,0.5)] w-[320px] md:w-[400px] h-[240px] md:h-[300px] rounded-xl overflow-hidden  flex items-center justify-center text-white">
+            {isFinding ? (
+              <p className="text-lg">🔍 Finding a stranger...</p>
+            ) : (
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                muted
+                playsInline
+                className="w-full h-full  object-cover rotate-y-180"
+              />
+            )}
+          </div>
+
+          {/* Local Video */}
+          <div className="bg-gray-800  w-[320px] md:w-[400px] h-[240px] md:h-[300px] rounded-xl overflow-hidden shadow-[0_0_10px_2px_rgba(233,126,1,0.5)]">
+            <video
+              ref={localVideoRef}
+              autoPlay
+              muted
+              playsInline
+              className="w-full h-full object-cover rotate-y-180"
+            />
+          </div>
+        </div>
+
+        {/* Chat Section */}
+        <div className="w-full flex flex-col gap-4">
+          {/* Chat Box */}
+          <div className="flex flex-col justify-between bg-[rgb(20,20,20)] rounded-[15px] shadow-md h-[550px] border border-gray-700 overflow-hidden">
+            {/* Messages Container (scrollable + flex for alignment) */}
+            <div  ref={messageContainerRef} className=" chat-scroll flex-1 flex flex-col overflow-y-auto px-4 py-3  text-white">
+              {allMessages.map((data, index) => {
+                console.log("tumhare dost ka id",friendSocketId);
+                if (data.user === friendSocketId) {
+                  // Stranger message (left)
+                  return (
+                    <div
+                      key={index}
+                      className="self-start bg-gray-700 text-white px-4 py-2 rounded-tl-lg rounded-tr-lg rounded-br-lg rounded-bl-none max-w-[80%] my-1"
+                    >
+                      {data.message}
+                    </div>
+                  );
+                }
+
+                if (data.user === mySocketId) {
+                  // Your message (right)
+                  return (
+                    <div
+                      key={index}
+                      className="self-end bg-[rgb(30,115,232)] text-white px-4 py-2 rounded-tl-lg rounded-tr-lg rounded-bl-lg rounded-br-none max-w-[80%] my-1"
+                    >
+                      {data.message}
+                    </div>
+                  );
+                }
+
+                return null; // fallback if no match
+              })}
+
+              
+            </div>
+
+            {/* Chat Input (always at bottom) */}
+            <div className="px-4 py-3 border-t border-gray-700 bg-[rgb(20,20,20)]">
+              <input
+                type="text"
+                name="chat"
+                value={currentMessage}
+                onChange={(e) => setCurrentMessage(e.target.value)}
+                onKeyDown={handleEnter}
+                placeholder="Type your message..."
+                className="w-full px-4 py-3 rounded-[15px] bg-[rgb(31,35,38)] text-white placeholder-gray-400 border border-gray-700 focus:outline-none focus:ring-1 focus:ring-[#00FFC6]"
+              />
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex justify-evenly mt-2">
+            <button
+              onClick={handleStart}
+              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition"
+            >
+              ▶️ Start
+            </button>
+            <button
+              onClick={handleNext}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition"
+            >
+              🔁 Next
+            </button>
+            <button
+              onClick={handleStop}
+              className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-medium transition"
+            >
+              ⛔ Stop
+            </button>
+          </div>
+        </div>
       </div>
-
-      {/* Remote Video or Placeholder */}
-      <div className="bg-amber-300 border-4 border-red-800 w-[400px] h-[300px] rounded-xl flex items-center justify-center text-xl font-semibold text-gray-800">
-        {isFinding ? (
-          <p>🔍 Finding a stranger...</p>
-        ) : (
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            muted
-            playsInline
-            className="w-full h-full object-cover rotate-y-180"
-          />
-        )}
-      </div>
     </div>
-
-    {/* Control Buttons */}
-    <div className="flex gap-6 py-4 fixed bottom-4">
-      <button
-        onClick={handleStart}
-        className="bg-green-600 text-white px-6 py-2 rounded-lg shadow hover:bg-green-700 transition"
-      >
-        ▶️ Start
-      </button>
-      <button
-        onClick={handleNext}
-        className="bg-blue-600 text-white px-6 py-2 rounded-lg shadow hover:bg-blue-700 transition"
-      >
-        🔁 Next
-      </button>
-      <button
-        onClick={handleStop}
-        className="bg-red-600 text-white px-6 py-2 rounded-lg shadow hover:bg-red-700 transition"
-      >
-        ⛔ Stop
-      </button>
-    </div>
-  </div>
-);
-
+  );
 }
 
 export default Room;
