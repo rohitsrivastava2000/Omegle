@@ -21,22 +21,23 @@ const availableSet = new Set();
 const waitingSet = new Set();
 const activeRooms = new Map();
 const MATCH_EXPIRY = 30 * 1000; // 30 second
-let liveUser=0;
+
 
 
 io.on("connection", (socket) => {
   console.log(socket.id);
-
+  io.emit('live-user',{liveUser:availableSet.size});
   socket.on("start-connecting", () => {
     // availableSet.add(socket.id);
     console.log("step 2");
     // availableSet.add(socket.id);
 
-    if(waitingSet.has(socket.id))
+    if(availableSet.has(socket.id))
       return ;
+
+    availableSet.add(socket.id);
     
-    liveUser++;
-    io.emit('live-user',{liveUser});
+    io.emit('live-user',{liveUser:availableSet.size});
     makeMatchIfPossible(socket);
   });
 
@@ -71,12 +72,12 @@ io.on("connection", (socket) => {
 
   socket.on("stop", ({ otherUserId }) => {
     if (otherUserId) {
-      liveUser--;
-      io.emit('live-user',{liveUser});
+      
+      availableSet.delete(socket.id);
+      io.emit('live-user',{liveUser:availableSet.size});
       cleanUpMatch(socket.id, otherUserId);
       // io.to(otherUserId).emit("user-left", { roomId }); TODO add the tosat;
       // Remove from both sets
-      availableSet.delete(socket.id);
       waitingSet.delete(socket.id);
 
       io.to(otherUserId).emit("clear-message");
@@ -121,11 +122,13 @@ io.on("connection", (socket) => {
     availableSet.delete(socket.id);
     waitingSet.delete(socket.id);
 
+    
+
     const otherUserId = activeRooms.get(socket.id);
     console.log(otherUserId);
     io.to(otherUserId).emit("clear-message");
-    liveUser--;
-    io.emit('live-user',{liveUser});
+   
+    io.emit('live-user',{liveUser:availableSet.size});
   });
 });
 
@@ -138,8 +141,8 @@ function makeMatchIfPossible(socket) {
       console.log(waitingSet.size);
       waitingSet.delete(user);
       waitingSet.delete(socket.id);
-      availableSet.delete(user);
-      availableSet.delete(socket.id);
+      // availableSet.delete(user);
+      // availableSet.delete(socket.id);
       console.log(waitingSet.size);
       console.log(`🔗 delete in waithing: ${user} <--> ${socket.id}`);
       return;
@@ -147,20 +150,20 @@ function makeMatchIfPossible(socket) {
   }
 
   // 2. Try availableSet
-  for (let user of availableSet) {
-    if (!isCurrentlyMatched(user, socket.id) && user != socket.id) {
-      console.log(`🔗 Matched in available: ${user} <--> ${socket.id}`);
-      startMatch(user, socket.id);
-      availableSet.delete(user);
-      availableSet.delete(socket.id);
-      waitingSet.delete(user);
-      waitingSet.delete(socket.id);
-      console.log(`🔗 delete in available: ${user} <--> ${socket.id}`);
-      console.log(availableSet.size);
-      console.log(waitingSet.size);
-      return;
-    }
-  }
+  // for (let user of availableSet) {
+  //   if (!isCurrentlyMatched(user, socket.id) && user != socket.id) {
+  //     console.log(`🔗 Matched in available: ${user} <--> ${socket.id}`);
+  //     startMatch(user, socket.id);
+  //     availableSet.delete(user);
+  //     availableSet.delete(socket.id);
+  //     waitingSet.delete(user);
+  //     waitingSet.delete(socket.id);
+  //     console.log(`🔗 delete in available: ${user} <--> ${socket.id}`);
+  //     console.log(availableSet.size);
+  //     console.log(waitingSet.size);
+  //     return;
+  //   }
+  // }
 
   // 3. No match found
   waitingSet.add(socket.id);

@@ -25,13 +25,14 @@ function Room() {
   const [currentMessage, setCurrentMessage] = useState("");
   const [audioEnable, setAudioEnable] = useState(true);
   const [videoEnable, setVideoEnable] = useState(true);
+  const [showButton,setShowButton]=useState(false);
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const socketRef = useRef(null);
   const peerInstance = useRef(null);
   const messageContainerRef = useRef(null);
-  const [onlineUser,setOnlineUser]=useState(0);
+  const [onlineUser, setOnlineUser] = useState(0);
 
   const { socket } = useContext(SocketContext);
 
@@ -242,13 +243,13 @@ function Room() {
     });
 
     socket.on("audio-muted", () => {
-     //TODO toast.error("User Muted Audio.");
+      //TODO toast.error("User Muted Audio.");
     });
 
-    socket.on('live-user',({liveUser})=>{
-      console.log("live user yeh hai",liveUser);
+    socket.on("live-user", ({ liveUser }) => {
+      console.log("live user yeh hai", liveUser);
       setOnlineUser(liveUser);
-    })
+    });
 
     // Cleanup socket listeners on unmount
     return () => {
@@ -258,12 +259,13 @@ function Room() {
       socket.off("ice-candidate");
       socket.off("clear-message");
       socket.off("send-message");
-      socket.off('video-muted');
+      socket.off("video-muted");
     };
   }, [socketRef, localStream]);
 
   const handleStart = () => {
     setIsFinding(true);
+    setShowButton(true);
     console.log("i am on hadleStart");
     socket.emit("start-connecting");
   };
@@ -305,6 +307,7 @@ function Room() {
     }
     setIsFinding(false);
     setAllMessages([]);
+    setShowButton(false);
     socket.emit("stop", { otherUserId: friendSocketId });
     // toast.success("Stopped Successfully.");
   };
@@ -339,21 +342,21 @@ function Room() {
   }, [allMessages]);
 
   // toggling the video
-  const toggleVideo=()=>{
-    if(localStream){
-      const videoTrack=localStream.getVideoTracks()[0];
-      if(videoTrack){
-        videoTrack.enabled=!videoTrack.enabled;
+  const toggleVideo = () => {
+    if (localStream) {
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
         setVideoEnable(videoTrack.enabled);
         //TODO show toast message
 
-        if(!videoTrack.enabled){
-          socket.emit('video-muted',{otherUserId:friendSocketId});
+        if (!videoTrack.enabled) {
+          socket.emit("video-muted", { otherUserId: friendSocketId });
         }
       }
     }
-  }
-  //toggling the audio 
+  };
+  //toggling the audio
   const toggleAudio = () => {
     if (localStream) {
       const audioTrack = localStream.getAudioTracks()[0];
@@ -364,7 +367,7 @@ function Room() {
         //   audioTrack.enabled ? "Microphone Unmuted." : "Microphone Muted."
         // );
         if (!audioTrack.enabled) {
-          socket.emit("audio-muted", { otherUserID:friendSocketId });
+          socket.emit("audio-muted", { otherUserID: friendSocketId });
         }
       }
     }
@@ -383,13 +386,19 @@ function Room() {
       }}
     >
       {/* Navbar */}
-      <nav className="w-full h-14 bg-[#141414] flex justify-center items-center shadow-md rounded-tl-lg rounded-tr-lg rounded-bl-none  rounded-br-none">
-        <h1 className="text-2xl font-bold text-[rgb(233,126,1)] tracking-wide">
-          🎥 NextMeet 🎥
-        </h1>
-        <h1>
-          {`${onlineUser ?`${onlineUser} Online`:`0 Online`}`}
-        </h1>
+      <nav className="w-full h-14 bg-[#141414] flex items-center justify-between px-4 shadow-md rounded-tl-lg rounded-tr-lg">
+        <div className="flex-1 flex justify-center">
+          <h1 className="text-xl md:text-2xl font-semibold text-[rgb(233,126,1)] tracking-wide flex items-center gap-2">
+            🎥 NextMeet
+          </h1>
+        </div>
+        <div className="flex items-center gap-2 text-sm md:text-base font-medium text-gray-300">
+          <span className="relative flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+          </span>
+          { `${onlineUser} Online`}
+        </div>
       </nav>
 
       {/* Main Section */}
@@ -398,7 +407,7 @@ function Room() {
         <div className="flex flex-col gap-4">
           {/* Remote Video */}
           <div className="bg-gray-800  shadow-[0_0_10px_2px_rgba(233,126,1,0.5)] w-[320px] md:w-[400px] h-[240px] md:h-[300px] rounded-xl overflow-hidden  flex items-center justify-center text-white">
-            {isFinding ? (
+            {!showButton ? <p>Click On Start Button To Start</p>:<>{isFinding ? (
               <p className="text-lg">🔍 Finding a stranger...</p>
             ) : (
               <video
@@ -408,7 +417,7 @@ function Room() {
                 playsInline
                 className="w-full h-full  object-cover rotate-y-180"
               />
-            )}
+            )}</>}
           </div>
 
           {/* Local Video */}
@@ -500,24 +509,28 @@ function Room() {
 
           {/* Buttons */}
           <div className="flex justify-evenly mt-2">
-            <button
+            {!showButton ?<button
               onClick={handleStart}
               className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg flex gap-2 items-center justify-center font-medium transition"
             >
-             <CirclePlay size={20} />Start
-            </button>
-            <button
+              <CirclePlay size={20} />
+              Start
+            </button>:<><button
               onClick={handleNext}
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex gap-2 items-center justify-center  font-medium transition"
             >
-              <CircleArrowRight size={20}/>Next
+              <CircleArrowRight size={20} />
+              Next
             </button>
             <button
               onClick={handleStop}
               className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg flex gap-2 items-center justify-center font-medium transition"
             >
-              <CircleStop size={20}/>Stop
-            </button>
+              <CircleStop size={20} />
+              Stop
+            </button></>}
+            
+            
           </div>
         </div>
       </div>
