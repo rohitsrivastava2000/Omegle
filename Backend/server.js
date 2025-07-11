@@ -21,6 +21,9 @@ const availableSet = new Set();
 const waitingSet = new Set();
 const activeRooms = new Map();
 const MATCH_EXPIRY = 30 * 1000; // 30 second
+let liveUser=0;
+
+
 io.on("connection", (socket) => {
   console.log(socket.id);
 
@@ -28,14 +31,20 @@ io.on("connection", (socket) => {
     // availableSet.add(socket.id);
     console.log("step 2");
     // availableSet.add(socket.id);
+
+    if(waitingSet.has(socket.id))
+      return ;
+    
+    liveUser++;
+    io.emit('live-user',{liveUser});
     makeMatchIfPossible(socket);
   });
 
   socket.on("next", ({ otherUserId }) => {
     if (otherUserId) {
       // Clean up active match
-      console.log("mai aaya")
-      cleanUpMatch(socket.id,otherUserId);
+      console.log("mai aaya");
+      cleanUpMatch(socket.id, otherUserId);
 
       // Add both users to waiting queue
       // waitingSet.add(socket.id);
@@ -45,45 +54,52 @@ io.on("connection", (socket) => {
       makeMatchIfPossible(socket);
       io.to(otherUserId).emit("clear-message");
       // Also try matching other user
-      console.log("h1")
+      console.log("h1");
       setTimeout(() => {
-        console.log("h2")
+        console.log("h2");
         const fakeSocket = { id: otherUserId };
-        console.log("yes push hua before",waitingSet.size);
+        console.log("yes push hua before", waitingSet.size);
         makeMatchIfPossible(fakeSocket);
-        console.log("yesh push hua after",waitingSet.size);
+        console.log("yesh push hua after", waitingSet.size);
       }, 100); // Delay to prevent race condition
     } else {
       // No partner – user likely unmatched, still clicked "next"
-      
+
       makeMatchIfPossible(socket);
     }
   });
 
-  socket.on('stop',({otherUserId})=>{
-    if(otherUserId){
-      cleanUpMatch(socket.id,otherUserId);
+  socket.on("stop", ({ otherUserId }) => {
+    if (otherUserId) {
+      liveUser--;
+      io.emit('live-user',{liveUser});
+      cleanUpMatch(socket.id, otherUserId);
       // io.to(otherUserId).emit("user-left", { roomId }); TODO add the tosat;
       // Remove from both sets
       availableSet.delete(socket.id);
       waitingSet.delete(socket.id);
 
-      io.to(otherUserId).emit("clear-message");    
-      
+      io.to(otherUserId).emit("clear-message");
+
       setTimeout(() => {
-       
         const fakeSocket = { id: otherUserId };
-       
+
         makeMatchIfPossible(fakeSocket);
-        
       }, 100);
-
     }
-  })
+  });
 
-  socket.on('send-message',({message,otherUserId,mySocketId})=>{
-    io.to(otherUserId).emit('send-message',{message,mySocketId});
-  })
+  socket.on("video-muted", ({ otherUserID }) => {
+    io.to(otherUserID).emit("video-muted");
+  });
+
+  socket.on("audio-muted", ({otherUserID }) => {
+    io.to(otherUserID).emit("audio-muted");
+  });
+
+  socket.on("send-message", ({ message, otherUserId, mySocketId }) => {
+    io.to(otherUserId).emit("send-message", { message, mySocketId });
+  });
 
   socket.on("offer", (data) => {
     const { offer, roomId, to } = data;
@@ -105,16 +121,18 @@ io.on("connection", (socket) => {
     availableSet.delete(socket.id);
     waitingSet.delete(socket.id);
 
-    const otherUserId=activeRooms.get(socket.id);
-    console.log(otherUserId)
-    io.to(otherUserId).emit('clear-message');
+    const otherUserId = activeRooms.get(socket.id);
+    console.log(otherUserId);
+    io.to(otherUserId).emit("clear-message");
+    liveUser--;
+    io.emit('live-user',{liveUser});
   });
 });
 
 function makeMatchIfPossible(socket) {
   // 1. Try waitingSet
   for (let user of waitingSet) {
-    if (!isCurrentlyMatched(user, socket.id) && user!=socket.id) {
+    if (!isCurrentlyMatched(user, socket.id) && user != socket.id) {
       console.log(`🔗 Matched in waithing: ${user} <--> ${socket.id}`);
       startMatch(user, socket.id);
       console.log(waitingSet.size);
@@ -130,7 +148,7 @@ function makeMatchIfPossible(socket) {
 
   // 2. Try availableSet
   for (let user of availableSet) {
-    if (!isCurrentlyMatched(user, socket.id) && user!=socket.id) {
+    if (!isCurrentlyMatched(user, socket.id) && user != socket.id) {
       console.log(`🔗 Matched in available: ${user} <--> ${socket.id}`);
       startMatch(user, socket.id);
       availableSet.delete(user);
@@ -138,15 +156,14 @@ function makeMatchIfPossible(socket) {
       waitingSet.delete(user);
       waitingSet.delete(socket.id);
       console.log(`🔗 delete in available: ${user} <--> ${socket.id}`);
-      console.log(availableSet.size)
-      console.log(waitingSet.size)
+      console.log(availableSet.size);
+      console.log(waitingSet.size);
       return;
     }
   }
 
   // 3. No match found
-  waitingSet.add(socket.id)
-  
+  waitingSet.add(socket.id);
 }
 
 function startMatch(userA, userB) {
@@ -155,8 +172,6 @@ function startMatch(userA, userB) {
   // ✅ Track the active room
   activeRooms.set(userA, userB);
   activeRooms.set(userB, userA);
-
-  
 
   io.to(userA).emit("start-joining", { from: userB, roomId, me: userA });
   io.to(userB).emit("start-joining", { from: userA, roomId, me: userB });

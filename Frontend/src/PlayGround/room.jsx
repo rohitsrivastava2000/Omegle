@@ -1,7 +1,18 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import { SocketContext } from "../Context/SocketProvider";
 import PeerService from "../Service/peer";
-import './scrollBar.css'
+import "./scrollBar.css";
+import {
+  CircleArrowRight,
+  CirclePlay,
+  CircleStop,
+  Loader,
+  SendHorizonal,
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+} from "lucide-react";
 
 function Room() {
   const [localStream, setLocalStream] = useState(null);
@@ -12,15 +23,15 @@ function Room() {
   const [nextProcessing, setNextProcessing] = useState(false);
   const [allMessages, setAllMessages] = useState([]);
   const [currentMessage, setCurrentMessage] = useState("");
+  const [audioEnable, setAudioEnable] = useState(true);
+  const [videoEnable, setVideoEnable] = useState(true);
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const socketRef = useRef(null);
   const peerInstance = useRef(null);
   const messageContainerRef = useRef(null);
-
-
-
+  const [onlineUser,setOnlineUser]=useState(0);
 
   const { socket } = useContext(SocketContext);
 
@@ -217,14 +228,27 @@ function Room() {
 
     socket.on("clear-message", () => {
       setIsFinding(true);
-      setAllMessages([]);   
-     
-      
+      setAllMessages([]);
     });
 
-    socket.on("send-message", ({ message,mySocketId }) => {
-      setAllMessages((prev) => [...prev,{message:message,user:mySocketId}]);
+    socket.on("send-message", ({ message, mySocketId }) => {
+      setAllMessages((prev) => [
+        ...prev,
+        { message: message, user: mySocketId },
+      ]);
     });
+    socket.on("video-muted", () => {
+      // TODO toast.error("User Turned Off Video.");
+    });
+
+    socket.on("audio-muted", () => {
+     //TODO toast.error("User Muted Audio.");
+    });
+
+    socket.on('live-user',({liveUser})=>{
+      console.log("live user yeh hai",liveUser);
+      setOnlineUser(liveUser);
+    })
 
     // Cleanup socket listeners on unmount
     return () => {
@@ -234,6 +258,7 @@ function Room() {
       socket.off("ice-candidate");
       socket.off("clear-message");
       socket.off("send-message");
+      socket.off('video-muted');
     };
   }, [socketRef, localStream]);
 
@@ -300,18 +325,50 @@ function Room() {
       socket.emit("send-message", {
         message: currentMessage,
         otherUserId: friendSocketId,
-        mySocketId:mySocketId
+        mySocketId: mySocketId,
       });
     }
   };
 
   //handling scroll bar
   useEffect(() => {
-  if (messageContainerRef.current) {
-    messageContainerRef.current.scrollTop =
-      messageContainerRef.current.scrollHeight;
+    if (messageContainerRef.current) {
+      messageContainerRef.current.scrollTop =
+        messageContainerRef.current.scrollHeight;
+    }
+  }, [allMessages]);
+
+  // toggling the video
+  const toggleVideo=()=>{
+    if(localStream){
+      const videoTrack=localStream.getVideoTracks()[0];
+      if(videoTrack){
+        videoTrack.enabled=!videoTrack.enabled;
+        setVideoEnable(videoTrack.enabled);
+        //TODO show toast message
+
+        if(!videoTrack.enabled){
+          socket.emit('video-muted',{otherUserId:friendSocketId});
+        }
+      }
+    }
   }
-}, [allMessages]);
+  //toggling the audio 
+  const toggleAudio = () => {
+    if (localStream) {
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setAudioEnable(audioTrack.enabled);
+        // TODO toast.success(
+        //   audioTrack.enabled ? "Microphone Unmuted." : "Microphone Muted."
+        // );
+        if (!audioTrack.enabled) {
+          socket.emit("audio-muted", { otherUserID:friendSocketId });
+        }
+      }
+    }
+  };
 
   return (
     <div
@@ -328,7 +385,10 @@ function Room() {
       {/* Navbar */}
       <nav className="w-full h-14 bg-[#141414] flex justify-center items-center shadow-md rounded-tl-lg rounded-tr-lg rounded-bl-none  rounded-br-none">
         <h1 className="text-2xl font-bold text-[rgb(233,126,1)] tracking-wide">
-          🎥 Omegle Clone
+          🎥 NextMeet 🎥
+        </h1>
+        <h1>
+          {`${onlineUser ?`${onlineUser} Online`:`0 Online`}`}
         </h1>
       </nav>
 
@@ -352,7 +412,7 @@ function Room() {
           </div>
 
           {/* Local Video */}
-          <div className="bg-gray-800  w-[320px] md:w-[400px] h-[240px] md:h-[300px] rounded-xl overflow-hidden shadow-[0_0_10px_2px_rgba(233,126,1,0.5)]">
+          <div className="bg-gray-800 relative w-[320px] md:w-[400px] h-[240px] md:h-[300px] rounded-xl overflow-hidden shadow-[0_0_10px_2px_rgba(233,126,1,0.5)]">
             <video
               ref={localVideoRef}
               autoPlay
@@ -360,6 +420,28 @@ function Room() {
               playsInline
               className="w-full h-full object-cover rotate-y-180"
             />
+            <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-6">
+              <button
+                onClick={toggleVideo}
+                className={`flex items-center justify-center w-9 h-9 rounded-full shadow-[0_0_10px_2px_rgba(233,126,1,0.9)] transition-transform transform hover:scale-110 ${
+                  videoEnable
+                    ? "bg-gray-600 hover:bg-gray-800"
+                    : "bg-red-500 hover:bg-red-600"
+                } text-white`}
+              >
+                {videoEnable ? <Video size={20} /> : <VideoOff size={20} />}
+              </button>
+              <button
+                onClick={toggleAudio}
+                className={`flex items-center justify-center w-9 h-9 rounded-full shadow-[0_0_10px_2px_rgba(233,126,1,0.9)] transition-transform transform hover:scale-110 ${
+                  audioEnable
+                    ? "bg-gray-600 hover:bg-gray-800"
+                    : "bg-red-500 hover:bg-red-600"
+                } text-white`}
+              >
+                {audioEnable ? <Mic size={20} /> : <MicOff size={20} />}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -368,9 +450,12 @@ function Room() {
           {/* Chat Box */}
           <div className="flex flex-col justify-between bg-[rgb(20,20,20)] rounded-[15px] shadow-md h-[550px] border border-gray-700 overflow-hidden">
             {/* Messages Container (scrollable + flex for alignment) */}
-            <div  ref={messageContainerRef} className=" chat-scroll flex-1 flex flex-col overflow-y-auto px-4 py-3  text-white">
+            <div
+              ref={messageContainerRef}
+              className=" chat-scroll flex-1 flex flex-col overflow-y-auto px-4 py-3  text-white"
+            >
               {allMessages.map((data, index) => {
-                console.log("tumhare dost ka id",friendSocketId);
+                console.log("tumhare dost ka id", friendSocketId);
                 if (data.user === friendSocketId) {
                   // Stranger message (left)
                   return (
@@ -397,8 +482,6 @@ function Room() {
 
                 return null; // fallback if no match
               })}
-
-              
             </div>
 
             {/* Chat Input (always at bottom) */}
@@ -419,21 +502,21 @@ function Room() {
           <div className="flex justify-evenly mt-2">
             <button
               onClick={handleStart}
-              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition"
+              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg flex gap-2 items-center justify-center font-medium transition"
             >
-              ▶️ Start
+             <CirclePlay size={20} />Start
             </button>
             <button
               onClick={handleNext}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex gap-2 items-center justify-center  font-medium transition"
             >
-              🔁 Next
+              <CircleArrowRight size={20}/>Next
             </button>
             <button
               onClick={handleStop}
-              className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-medium transition"
+              className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg flex gap-2 items-center justify-center font-medium transition"
             >
-              ⛔ Stop
+              <CircleStop size={20}/>Stop
             </button>
           </div>
         </div>
