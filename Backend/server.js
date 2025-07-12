@@ -22,29 +22,26 @@ const waitingSet = new Set();
 const activeRooms = new Map();
 const MATCH_EXPIRY = 30 * 1000; // 30 second
 
-
-
 io.on("connection", (socket) => {
-  console.log(socket.id);
-  io.emit('live-user',{liveUser:availableSet.size});
+  //console.log(socket.id);
+  io.emit("live-user", { liveUser: availableSet.size });
   socket.on("start-connecting", () => {
-    // availableSet.add(socket.id);
-    console.log("step 2");
-    // availableSet.add(socket.id);
+   
+   // console.log("step 2");
+   
 
-    if(availableSet.has(socket.id))
-      return ;
+    if (availableSet.has(socket.id)) return;
 
     availableSet.add(socket.id);
-    
-    io.emit('live-user',{liveUser:availableSet.size});
+
+    io.emit("live-user", { liveUser: availableSet.size });
     makeMatchIfPossible(socket);
   });
 
   socket.on("next", ({ otherUserId }) => {
     if (otherUserId) {
       // Clean up active match
-      console.log("mai aaya");
+     // console.log("mai aaya");
       cleanUpMatch(socket.id, otherUserId);
 
       // Add both users to waiting queue
@@ -55,13 +52,13 @@ io.on("connection", (socket) => {
       makeMatchIfPossible(socket);
       io.to(otherUserId).emit("clear-message");
       // Also try matching other user
-      console.log("h1");
+      //console.log("h1");
       setTimeout(() => {
-        console.log("h2");
+       // console.log("h2");
         const fakeSocket = { id: otherUserId };
-        console.log("yes push hua before", waitingSet.size);
+       // console.log("yes push hua before", waitingSet.size);
         makeMatchIfPossible(fakeSocket);
-        console.log("yesh push hua after", waitingSet.size);
+       // console.log("yesh push hua after", waitingSet.size);
       }, 100); // Delay to prevent race condition
     } else {
       // No partner – user likely unmatched, still clicked "next"
@@ -72,9 +69,8 @@ io.on("connection", (socket) => {
 
   socket.on("stop", ({ otherUserId }) => {
     if (otherUserId) {
-      
       availableSet.delete(socket.id);
-      io.emit('live-user',{liveUser:availableSet.size});
+      io.emit("live-user", { liveUser: availableSet.size });
       cleanUpMatch(socket.id, otherUserId);
       // io.to(otherUserId).emit("user-left", { roomId }); TODO add the tosat;
       // Remove from both sets
@@ -90,12 +86,13 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("video-muted", ({ otherUserID }) => {
-    io.to(otherUserID).emit("video-muted");
+  socket.on("video-muted", ({ otherUserId }) => {
+    console.log("video muted",otherUserId)
+    io.to(otherUserId).emit("video-muted");
   });
 
-  socket.on("audio-muted", ({otherUserID }) => {
-    io.to(otherUserID).emit("audio-muted");
+  socket.on("audio-muted", ({ otherUserId }) => {
+    io.to(otherUserId).emit("audio-muted");
   });
 
   socket.on("send-message", ({ message, otherUserId, mySocketId }) => {
@@ -118,17 +115,15 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnecting", () => {
-    console.log("disconnected");
+    //console.log("disconnected");
     availableSet.delete(socket.id);
     waitingSet.delete(socket.id);
 
-    
-
     const otherUserId = activeRooms.get(socket.id);
-    console.log(otherUserId);
+    //console.log(otherUserId);
     io.to(otherUserId).emit("clear-message");
    
-    io.emit('live-user',{liveUser:availableSet.size});
+    io.emit("live-user", { liveUser: availableSet.size });
   });
 });
 
@@ -136,15 +131,15 @@ function makeMatchIfPossible(socket) {
   // 1. Try waitingSet
   for (let user of waitingSet) {
     if (!isCurrentlyMatched(user, socket.id) && user != socket.id) {
-      console.log(`🔗 Matched in waithing: ${user} <--> ${socket.id}`);
+     // console.log(`🔗 Matched in waithing: ${user} <--> ${socket.id}`);
       startMatch(user, socket.id);
-      console.log(waitingSet.size);
+     // console.log(waitingSet.size);
       waitingSet.delete(user);
       waitingSet.delete(socket.id);
       // availableSet.delete(user);
       // availableSet.delete(socket.id);
-      console.log(waitingSet.size);
-      console.log(`🔗 delete in waithing: ${user} <--> ${socket.id}`);
+    //  console.log(waitingSet.size);
+    //  console.log(`🔗 delete in waithing: ${user} <--> ${socket.id}`);
       return;
     }
   }

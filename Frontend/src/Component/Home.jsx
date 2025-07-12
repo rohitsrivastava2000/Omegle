@@ -1,9 +1,22 @@
-import React from 'react';
-import { SignedIn, SignedOut, SignInButton } from '@clerk/clerk-react';
+import React, { useEffect } from 'react';
+import { SignedIn, SignedOut, SignInButton, useUser } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
+import {toast} from 'react-hot-toast'
 
 function Home() {
   const navigate = useNavigate();
+
+  const { isSignedIn, isLoaded } = useUser();
+
+  useEffect(() => {
+    if (!isLoaded) return; 
+
+    if (isSignedIn) {
+      toast.success('Sign In Successfully');
+    } else {
+      toast.success('Please Sign In');
+    }
+  }, [isSignedIn, isLoaded]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center  text-white px-4" style={{

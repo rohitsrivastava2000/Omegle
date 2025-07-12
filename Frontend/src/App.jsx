@@ -9,6 +9,7 @@ import {
 } from "@clerk/clerk-react";
 import Home from "./Component/Home";
 import Room from "./PlayGround/room";
+import { Toaster,toast } from "react-hot-toast";
 
 function ProtectedRoute({ children }) {
   const { isSignedIn, isLoaded } = useUser();
@@ -22,6 +23,11 @@ function ProtectedRoute({ children }) {
 function App() {
   return (
     <>
+      <Toaster
+        position="top-center"
+        reverseOrder={false}
+        toastOptions={{ duration: 3000 }}
+      />
       <Routes>
        <Route path="/" element={<Home />} />
         <Route

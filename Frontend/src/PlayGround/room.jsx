@@ -14,6 +14,7 @@ import {
   VideoOff,
 } from "lucide-react";
 import { UserButton } from "@clerk/clerk-react";
+import toast from "react-hot-toast";
 
 function Room() {
   const [localStream, setLocalStream] = useState(null);
@@ -48,12 +49,13 @@ function Room() {
         setLocalStream(stream);
         console.log(stream);
       } catch (error) {
-        // TODO adding the toast
+        
+        toast.error('Please allow camera/microphone')
         if (error.name === "NotAllowedError") {
-          // toast.error("Camera/Mic Permission Denied.");
+           toast.error("Camera/Mic Permission Denied.");
           console.warn("Permissions denied for camera/microphone.");
         } else if (error.name === "NotFoundError") {
-          // toast.error("No Camera/Mic Found.");
+           toast.error("No Camera/Mic Found.");
           console.warn("No camera/microphone found.");
         }
       }
@@ -109,8 +111,8 @@ function Room() {
       setIsFinding(false);
       setFriendSocketId(from);
       setMySocketId(me);
-      console.log("MysocketId", mySocketId);
-      console.log("FriendSocketId", friendSocketId);
+      // console.log("MysocketId", mySocketId);
+      // console.log("FriendSocketId", friendSocketId);
       if (!localStream) {
         console.warn("Local stream not ready yet!");
         return;
@@ -182,7 +184,7 @@ function Room() {
         const answer = await peerInstance.current.getAnswer(offer);
         socket.emit("answer", { answer, to: from });
       } catch (error) {
-        toast.error("Connection Failed. Click Next!");
+        toast.error("Connection Failed");
       }
     });
 
@@ -200,8 +202,8 @@ function Room() {
         try {
           await peerInstance.current.setRemoteDescription(answer);
         } catch (error) {
-          toast.error("Failed to set remote answer.");
-          console.error("Error setting remote answer:", error);
+         // toast.error("Failed to set remote answer.");
+         // console.error("Error setting remote answer:", error);
         }
       } else if (state === "stable") {
         // Already set?
@@ -231,6 +233,7 @@ function Room() {
     socket.on("clear-message", () => {
       setIsFinding(true);
       setAllMessages([]);
+      toast.error('User left')
     });
 
     socket.on("send-message", ({ message, mySocketId }) => {
@@ -240,11 +243,12 @@ function Room() {
       ]);
     });
     socket.on("video-muted", () => {
-      // TODO toast.error("User Turned Off Video.");
+      console.log("video muted")
+      toast.error("User Turned Off Video");
     });
 
     socket.on("audio-muted", () => {
-      //TODO toast.error("User Muted Audio.");
+      toast.error("User Mute Audio");
     });
 
     socket.on("live-user", ({ liveUser }) => {
@@ -261,12 +265,14 @@ function Room() {
       socket.off("clear-message");
       socket.off("send-message");
       socket.off("video-muted");
+       socket.off("audio-muted");
     };
   }, [socketRef, localStream]);
 
   const handleStart = () => {
     setIsFinding(true);
     setShowButton(true);
+    toast.success('Waiting for someone to connect...')
     console.log("i am on hadleStart");
     socket.emit("start-connecting");
   };
@@ -292,7 +298,7 @@ function Room() {
     setAllMessages([]);
     console.log("friend id", friendSocketId);
     socket.emit("next", { otherUserId: friendSocketId });
-    // toast.success("Finding Next User!");
+    toast.success("Start Finding Next User!");
 
     setTimeout(() => setNextProcessing(false), 1500); // 1.5s stop repeadly clicked on next button
   };
@@ -310,14 +316,15 @@ function Room() {
     setAllMessages([]);
     setShowButton(false);
     socket.emit("stop", { otherUserId: friendSocketId });
-    // toast.success("Stopped Successfully.");
+    toast.success("Stopped Successfully.");
   };
 
   //handling messages
   const handleEnter = (e) => {
     if (e.key === "Enter" && currentMessage.trim() !== "") {
       if (!friendSocketId) {
-        //TODO show the toast - NO one in the room
+        
+        toast.error('First to Connect Someone');
         return;
       }
       setAllMessages((prev) => [
@@ -349,9 +356,12 @@ function Room() {
       if (videoTrack) {
         videoTrack.enabled = !videoTrack.enabled;
         setVideoEnable(videoTrack.enabled);
-        //TODO show toast message
+         toast.success(
+          videoTrack.enabled ? "Video On" : "Video Off"
+        );
 
         if (!videoTrack.enabled) {
+          console.log(friendSocketId,"toggle video")
           socket.emit("video-muted", { otherUserId: friendSocketId });
         }
       }
@@ -364,11 +374,11 @@ function Room() {
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
         setAudioEnable(audioTrack.enabled);
-        // TODO toast.success(
-        //   audioTrack.enabled ? "Microphone Unmuted." : "Microphone Muted."
-        // );
+         toast.success(
+          audioTrack.enabled ? "Mic Unmuted" : "Mic Muted."
+        );
         if (!audioTrack.enabled) {
-          socket.emit("audio-muted", { otherUserID: friendSocketId });
+          socket.emit("audio-muted", { otherUserId: friendSocketId });
         }
       }
     }
