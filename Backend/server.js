@@ -69,11 +69,12 @@ io.on("connection", (socket) => {
 
   socket.on("stop", ({ otherUserId }) => {
     if (otherUserId) {
+      console.log("before clicking stop button",availableSet.size)
       availableSet.delete(socket.id);
+      console.log("after clicking stop button",availableSet.size)
       io.emit("live-user", { liveUser: availableSet.size });
       cleanUpMatch(socket.id, otherUserId);
-      // io.to(otherUserId).emit("user-left", { roomId }); TODO add the tosat;
-      // Remove from both sets
+      
       waitingSet.delete(socket.id);
 
       io.to(otherUserId).emit("clear-message");
@@ -83,6 +84,9 @@ io.on("connection", (socket) => {
 
         makeMatchIfPossible(fakeSocket);
       }, 100);
+    }else{
+      availableSet.delete(socket.id);
+      io.emit('live-user',{ liveUser: availableSet.size })
     }
   });
 
