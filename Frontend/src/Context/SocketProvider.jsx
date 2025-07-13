@@ -2,7 +2,7 @@ import React, {  createContext, useMemo } from "react";
 import io from 'socket.io-client'
 
 export const SocketContext=createContext(null);
-const server_url='http://localhost:1000'
+const server_url=import.meta.env.REACT_APP_API_URL;
 
 
 
