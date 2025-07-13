@@ -99,6 +99,7 @@ function Room() {
     const videoTracks = stream.getVideoTracks();
 
     // Add audio first
+    console.log("audio track is",audioTracks)
     audioTracks.forEach((track) => pc.addTrack(track, stream));
     // Then video
     videoTracks.forEach((track) => pc.addTrack(track, stream));
@@ -439,8 +440,7 @@ function Room() {
                 ) : (
                   <video
                     ref={remoteVideoRef}
-                    autoPlay
-                    muted
+                    autoPlay                    
                     playsInline
                     className="w-full h-full  object-cover rotate-y-180"
                   />
@@ -453,8 +453,7 @@ function Room() {
           <div className="bg-gray-800 relative w-[320px] md:w-[400px] h-[240px] md:h-[300px] rounded-xl overflow-hidden shadow-[0_0_10px_2px_rgba(233,126,1,0.5)]">
             <video
               ref={localVideoRef}
-              autoPlay
-              muted
+              autoPlay              
               playsInline
               className="w-full h-full object-cover rotate-y-180"
             />
