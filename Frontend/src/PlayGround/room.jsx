@@ -42,20 +42,23 @@ function Room() {
     const getPermission = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 30 },
+          },
           audio: true,
         });
 
         setLocalStream(stream);
         console.log(stream);
       } catch (error) {
-        
-        toast.error('Please allow camera/microphone')
+        toast.error("Please allow camera/microphone");
         if (error.name === "NotAllowedError") {
-           toast.error("Camera/Mic Permission Denied.");
+          toast.error("Camera/Mic Permission Denied.");
           console.warn("Permissions denied for camera/microphone.");
         } else if (error.name === "NotFoundError") {
-           toast.error("No Camera/Mic Found.");
+          toast.error("No Camera/Mic Found.");
           console.warn("No camera/microphone found.");
         }
       }
@@ -99,7 +102,7 @@ function Room() {
     const videoTracks = stream.getVideoTracks();
 
     // Add audio first
-    console.log("audio track is",audioTracks)
+    console.log("audio track is", audioTracks);
     audioTracks.forEach((track) => pc.addTrack(track, stream));
     // Then video
     videoTracks.forEach((track) => pc.addTrack(track, stream));
@@ -203,8 +206,8 @@ function Room() {
         try {
           await peerInstance.current.setRemoteDescription(answer);
         } catch (error) {
-         // toast.error("Failed to set remote answer.");
-         // console.error("Error setting remote answer:", error);
+          // toast.error("Failed to set remote answer.");
+          // console.error("Error setting remote answer:", error);
         }
       } else if (state === "stable") {
         // Already set?
@@ -234,7 +237,7 @@ function Room() {
     socket.on("clear-message", () => {
       setIsFinding(true);
       setAllMessages([]);
-      toast.error('User left')
+      toast.error("User left");
     });
 
     socket.on("send-message", ({ message, mySocketId }) => {
@@ -244,7 +247,7 @@ function Room() {
       ]);
     });
     socket.on("video-muted", () => {
-      console.log("video muted")
+      console.log("video muted");
       toast.error("User Turned Off Video");
     });
 
@@ -266,14 +269,14 @@ function Room() {
       socket.off("clear-message");
       socket.off("send-message");
       socket.off("video-muted");
-       socket.off("audio-muted");
+      socket.off("audio-muted");
     };
   }, [socketRef, localStream]);
 
   const handleStart = () => {
     setIsFinding(true);
     setShowButton(true);
-    toast.success('Waiting for someone to connect...')
+    toast.success("Waiting for someone to connect...");
     console.log("i am on hadleStart");
     socket.emit("start-connecting");
   };
@@ -324,8 +327,7 @@ function Room() {
   const handleEnter = (e) => {
     if (e.key === "Enter" && currentMessage.trim() !== "") {
       if (!friendSocketId) {
-        
-        toast.error('First to Connect Someone');
+        toast.error("First to Connect Someone");
         return;
       }
       setAllMessages((prev) => [
@@ -357,12 +359,10 @@ function Room() {
       if (videoTrack) {
         videoTrack.enabled = !videoTrack.enabled;
         setVideoEnable(videoTrack.enabled);
-         toast.success(
-          videoTrack.enabled ? "Video On" : "Video Off"
-        );
+        toast.success(videoTrack.enabled ? "Video On" : "Video Off");
 
         if (!videoTrack.enabled) {
-          console.log(friendSocketId,"toggle video")
+          console.log(friendSocketId, "toggle video");
           socket.emit("video-muted", { otherUserId: friendSocketId });
         }
       }
@@ -375,9 +375,7 @@ function Room() {
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
         setAudioEnable(audioTrack.enabled);
-         toast.success(
-          audioTrack.enabled ? "Mic Unmuted" : "Mic Muted."
-        );
+        toast.success(audioTrack.enabled ? "Mic Unmuted" : "Mic Muted.");
         if (!audioTrack.enabled) {
           socket.emit("audio-muted", { otherUserId: friendSocketId });
         }
@@ -399,7 +397,7 @@ function Room() {
     >
       {/* Navbar */}
       <nav className="w-full h-14 bg-[#141414] flex items-center justify-between px-4 shadow-md rounded-tl-lg rounded-tr-lg">
-        <div className="flex items-center" >
+        <div className="flex items-center">
           <UserButton
             appearance={{
               elements: {
@@ -413,7 +411,7 @@ function Room() {
         </div>
         <div className="flex-1 flex justify-center">
           <h1 className="text-xl md:text-2xl font-semibold text-[rgb(233,126,1)] tracking-wide flex items-center gap-2">
-             NextMeet
+            NextMeet
           </h1>
         </div>
         <div className="flex items-center gap-2 text-sm md:text-base font-medium text-gray-300">
@@ -440,7 +438,7 @@ function Room() {
                 ) : (
                   <video
                     ref={remoteVideoRef}
-                    autoPlay                    
+                    autoPlay
                     playsInline
                     className="w-full h-full  object-cover rotate-y-180"
                   />
@@ -453,7 +451,7 @@ function Room() {
           <div className="bg-gray-800 relative w-[320px] md:w-[400px] h-[240px] md:h-[300px] rounded-xl overflow-hidden shadow-[0_0_10px_2px_rgba(233,126,1,0.5)]">
             <video
               ref={localVideoRef}
-              autoPlay              
+              autoPlay
               playsInline
               className="w-full h-full object-cover rotate-y-180"
             />
