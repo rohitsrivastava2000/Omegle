@@ -1,20 +1,36 @@
 import express from "express";
 import http from "http";
 import { Server } from "socket.io";
+import cors from "cors";
 
 const app = express();
 
+// Enable CORS for HTTP routes
+app.use(cors({
+  origin: ['https://nextmeet.onrender.com', "http://localhost:5173"],
+  credentials: true
+}));
+
 const server = http.createServer(app);
 
-const io = new Server(server);
+// Enable CORS for Socket.io
+const io = new Server(server, {
+  cors: {
+    origin: ['https://nextmeet.onrender.com', "http://localhost:5173"],
+    credentials: true
+  }
+});
 
 app.get("/", (req, res) => {
   res.send("Server is Started");
 });
 
-server.listen("1000", () => {
-  console.log(`✅ Server is running `);
+
+
+server.listen(1000, () => {
+  console.log(`✅ Server is running on port 1000`);
 });
+
 
 //socket work
 const availableSet = new Set();

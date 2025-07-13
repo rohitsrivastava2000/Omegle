@@ -1,8 +1,9 @@
 import React, {  createContext, useMemo } from "react";
 import io from 'socket.io-client'
+const server_url=import.meta.env.VITE_API_URL;
 
 export const SocketContext=createContext(null);
-const server_url=import.meta.env.REACT_APP_API_URL;
+console.log(server_url);
 
 
 
