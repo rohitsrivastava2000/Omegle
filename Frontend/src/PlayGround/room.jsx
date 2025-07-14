@@ -453,6 +453,7 @@ function Room() {
               ref={localVideoRef}
               autoPlay
               playsInline
+              muted
               className="w-full h-full object-cover rotate-y-180"
             />
             <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-6">

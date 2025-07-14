@@ -23,7 +23,7 @@ class PeerService{
             this.localStream.getTracks().forEach((track)=>{
                 this.peer.addTrack(track,this.localStream);
             })
-            this.tracksAdded = true;
+            this.trackAdded = true;
         }
     }
 
