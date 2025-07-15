@@ -12,7 +12,7 @@ function Home() {
     if (!isLoaded) return; 
 
     if (isSignedIn) {
-      toast.success('Sign In Successfully');
+      toast.success('Welcome');
     } else {
       toast.success('Please Sign In');
     }

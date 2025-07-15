@@ -6,45 +6,42 @@ import cors from "cors";
 const app = express();
 
 // Enable CORS for HTTP routes
-app.use(cors({
-  origin: ['https://nextmeet.onrender.com', "http://localhost:5173"],
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: ["https://nextmeet.onrender.com", "http://localhost:5173"],
+    credentials: true,
+  })
+);
 
 const server = http.createServer(app);
 
 // Enable CORS for Socket.io
 const io = new Server(server, {
   cors: {
-    origin: ['https://nextmeet.onrender.com', "http://localhost:5173"],
-    credentials: true
-  }
+    origin: ["https://nextmeet.onrender.com", "http://localhost:5173"],
+    credentials: true,
+  },
 });
 
 app.get("/", (req, res) => {
   res.send("Server is Started");
 });
 
-
-
 server.listen(1000, () => {
   console.log(`✅ Server is running on port 1000`);
 });
-
 
 //socket work
 const availableSet = new Set();
 const waitingSet = new Set();
 const activeRooms = new Map();
-const MATCH_EXPIRY = 30 * 1000; // 30 second
+const MATCH_EXPIRY = 20 * 1000; // 30 second
 
 io.on("connection", (socket) => {
   //console.log(socket.id);
   io.emit("live-user", { liveUser: availableSet.size });
   socket.on("start-connecting", () => {
-   
-   // console.log("step 2");
-   
+    // console.log("step 2");
 
     if (availableSet.has(socket.id)) return;
 
@@ -57,7 +54,7 @@ io.on("connection", (socket) => {
   socket.on("next", ({ otherUserId }) => {
     if (otherUserId) {
       // Clean up active match
-     // console.log("mai aaya");
+      // console.log("mai aaya");
       cleanUpMatch(socket.id, otherUserId);
 
       // Add both users to waiting queue
@@ -70,11 +67,11 @@ io.on("connection", (socket) => {
       // Also try matching other user
       //console.log("h1");
       setTimeout(() => {
-       // console.log("h2");
+        // console.log("h2");
         const fakeSocket = { id: otherUserId };
-       // console.log("yes push hua before", waitingSet.size);
+        // console.log("yes push hua before", waitingSet.size);
         makeMatchIfPossible(fakeSocket);
-       // console.log("yesh push hua after", waitingSet.size);
+        // console.log("yesh push hua after", waitingSet.size);
       }, 100); // Delay to prevent race condition
     } else {
       // No partner – user likely unmatched, still clicked "next"
@@ -85,12 +82,12 @@ io.on("connection", (socket) => {
 
   socket.on("stop", ({ otherUserId }) => {
     if (otherUserId) {
-      console.log("before clicking stop button",availableSet.size)
+      console.log("before clicking stop button", availableSet.size);
       availableSet.delete(socket.id);
-      console.log("after clicking stop button",availableSet.size)
+      console.log("after clicking stop button", availableSet.size);
       io.emit("live-user", { liveUser: availableSet.size });
       cleanUpMatch(socket.id, otherUserId);
-      
+
       waitingSet.delete(socket.id);
 
       io.to(otherUserId).emit("clear-message");
@@ -100,14 +97,14 @@ io.on("connection", (socket) => {
 
         makeMatchIfPossible(fakeSocket);
       }, 100);
-    }else{
+    } else {
       availableSet.delete(socket.id);
-      io.emit('live-user',{ liveUser: availableSet.size })
+      io.emit("live-user", { liveUser: availableSet.size });
     }
   });
 
   socket.on("video-muted", ({ otherUserId }) => {
-    console.log("video muted",otherUserId)
+    console.log("video muted", otherUserId);
     io.to(otherUserId).emit("video-muted");
   });
 
@@ -142,7 +139,7 @@ io.on("connection", (socket) => {
     const otherUserId = activeRooms.get(socket.id);
     //console.log(otherUserId);
     io.to(otherUserId).emit("clear-message");
-   
+
     io.emit("live-user", { liveUser: availableSet.size });
   });
 });
@@ -151,15 +148,15 @@ function makeMatchIfPossible(socket) {
   // 1. Try waitingSet
   for (let user of waitingSet) {
     if (!isCurrentlyMatched(user, socket.id) && user != socket.id) {
-     // console.log(`🔗 Matched in waithing: ${user} <--> ${socket.id}`);
+      // console.log(`🔗 Matched in waithing: ${user} <--> ${socket.id}`);
       startMatch(user, socket.id);
-     // console.log(waitingSet.size);
+      // console.log(waitingSet.size);
       waitingSet.delete(user);
       waitingSet.delete(socket.id);
       // availableSet.delete(user);
       // availableSet.delete(socket.id);
-    //  console.log(waitingSet.size);
-    //  console.log(`🔗 delete in waithing: ${user} <--> ${socket.id}`);
+      //  console.log(waitingSet.size);
+      //  console.log(`🔗 delete in waithing: ${user} <--> ${socket.id}`);
       return;
     }
   }
